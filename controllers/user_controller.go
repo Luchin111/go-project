@@ -1,62 +1,76 @@
 package controllers
 
 import (
-	"go-crud/database"
+	"encoding/json"
 	"go-crud/models"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"strconv"
 )
 
-// Obtener todos los usuarios
-func GetUsers(c *gin.Context) {
-	var users []models.User
-	database.DB.Find(&users)
-	c.JSON(http.StatusOK, users)
+var users = []models.User{}
+var currentUserID = 1
+
+func GetUsers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
 }
 
-// Crear un nuevo usuario
-func CreateUser(c *gin.Context) {
+func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	json.NewDecoder(r.Body).Decode(&user)
+
+	if user.Username == "" || user.Password == "" {
+		http.Error(w, "Fields cannot be empty", http.StatusBadRequest)
 		return
 	}
-	database.DB.Create(&user)
-	c.JSON(http.StatusOK, user)
+
+	user.ID = currentUserID
+	currentUserID++
+	users = append(users, user)
+	json.NewEncoder(w).Encode(user)
 }
 
-// Similar para Update y Delete
-
-func UpdateUser(c *gin.Context) {
-	var user models.User
-	// Buscamos al usuario por su ID
-	if err := database.DB.Where("id = ?", c.Param("id")).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found!"})
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	idParam := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Actualizamos el usuario con los datos recibidos en la solicitud
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	var updatedUser models.User
+	json.NewDecoder(r.Body).Decode(&updatedUser)
+
+	for i, user := range users {
+		if user.ID == id {
+			if updatedUser.Username == "" || updatedUser.Password == "" {
+				http.Error(w, "Fields cannot be empty", http.StatusBadRequest)
+				return
+			}
+			users[i] = updatedUser
+			json.NewEncoder(w).Encode(updatedUser)
+			return
+		}
 	}
 
-	// Guardamos los cambios en la base de datos
-	database.DB.Save(&user)
-	c.JSON(http.StatusOK, user)
+	http.Error(w, "User not found", http.StatusNotFound)
 }
 
-// DeleteUser elimina un usuario por su ID
-func DeleteUser(c *gin.Context) {
-	var user models.User
-	// Buscamos al usuario por su ID
-	if err := database.DB.Where("id = ?", c.Param("id")).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found!"})
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	idParam := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Eliminamos el usuario de la base de datos
-	database.DB.Delete(&user)
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted!"})
+	for i, user := range users {
+		if user.ID == id {
+			users = append(users[:i], users[i+1:]...)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+
+	http.Error(w, "User not found", http.StatusNotFound)
 }

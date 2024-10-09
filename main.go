@@ -1,19 +1,20 @@
 package main
 
 import (
-	"go-crud/database"
+	"github.com/gorilla/mux"
 	"go-crud/routes"
-
-	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
 )
 
 func main() {
+	router := mux.NewRouter()
 
-	database.Connect()
+	// Registrar rutas
+	routes.RegisterUserRoutes(router)
+	routes.RegisterTaskRoutes(router)
+	routes.RegisterCategoryRoutes(router)
 
-	router := gin.Default()
-
-	routes.InitializeRoutes(router)
-
-	router.Run(":8080")
+	// Iniciar servidor
+	log.Fatal(http.ListenAndServe(":8082", router))
 }
