@@ -1,14 +1,19 @@
 package main
 
 import (
-    "go-project/routes"
-    "github.com/gin-gonic/gin"
+	"go-crud/database"
+	"go-crud/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-    router := gin.Default()
 
-    routes.InitializeRoutes(router)
+	database.Connect()
 
-    router.Run(":8082")
+	router := gin.Default()
+
+	routes.InitializeRoutes(router)
+
+	router.Run(":8080")
 }
